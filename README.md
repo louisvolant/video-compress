@@ -8,9 +8,10 @@ A Python utility for batch compressing `.mov` videos on macOS (optimized for M1/
 - **Dual Encoding Modes:**
     - **Hardware:** Ultra-fast HEVC encoding at ~2 Mbps average (VBR, up to 4 Mbps peak for complex scenes).
     - **Software:** H.264 at 1 Mbps CBR — slower but compatible with a wider range of players.
-- **Flexible Invocation:** Run from any directory by passing the target folder as an argument, or run directly from within the folder to process.
+- **Multi-directory Support:** Pass multiple target folders as arguments to process them all in one run.
+- **Flexible Invocation:** Run from any directory by passing the target folder(s) as arguments, or run directly from within the folder to process.
 - **Metadata Preservation:** Uses `ExifTool` to keep "Date Created" and "Date Modified" identical to the original file.
-- **Intelligent Logging:** Real-time display of original size, new size, and reduction percentage (with correct `+` sign when output is larger).
+- **Intelligent Logging:** Real-time display of original size, new size, and reduction percentage across a shared global counter.
 - **Batch Processing:** Recursively scans directories to process hundreds of videos while maintaining folder structure.
 
 ---
@@ -33,26 +34,36 @@ brew install ffmpeg exiftool
 
 ## 📖 How to Use
 
-### Option A — Pass the target directory as an argument (run from anywhere)
+### Option A — Run from within the target directory
 
 ```bash
-# From the parent directory, pointing to a specific subfolder
+cd "/path/to/my/videos/" && python3 /path/to/video-compress/video_compress.py
+```
+
+### Option B — Pass a single target directory as an argument
+
+```bash
 python3 video-compress/video_compress.py "/path/to/my/videos/"
 ```
 
-### Option B — Run from within the target directory
+### Option C — Pass multiple directories to process them in one run
 
 ```bash
-# Navigate to the folder containing the .mov files, then run the script
-cd "/path/to/my/videos/" && python3 /path/to/video-compress/video_compress.py
+python3 video-compress/video_compress.py "/path/to/folder1/" "/path/to/folder2/" "/path/to/folder3/"
 ```
+
+All videos across the provided folders are counted upfront and share a single global progress counter. A folder header is printed before each directory when multiple paths are given.
 
 ### Interactive menus
 
 After launching, the script will ask:
 
-1. **Destination:** Create copies in a `COMPRESSED_VIDEOS` subfolder, or overwrite the originals.
+1. **Destination:**
+   - `1` — **Overwrite originals** (convert `.mov` to `.mp4` in place and delete the source) ← default
+   - `2` — Create copies in a `COMPRESSED_VIDEOS` subfolder
 2. **Encoding engine:** Hardware (fast) or Software (slower, wider compatibility).
+
+The quickest way to run with default settings is to type `1` then `1`.
 
 ---
 
