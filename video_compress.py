@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import shutil
 
@@ -6,23 +7,26 @@ import shutil
 HARDWARE_CODEC = "hevc_videotoolbox"
 SOFTWARE_CODEC = "libx264"
 
-HARDWARE_QUALITY = 65  # 0-100, higher = better quality; 60-75 is a good range
+HARDWARE_BITRATE = "2M"   # Average target; encoder can burst up to 2x for complex scenes
 SOFTWARE_BITRATE = "1M"  # Software is more efficient, can use lower bitrate
 
 AUDIO_BITRATE = "64k"
 TARGET_EXTENSION = ".mov"
 
 
-def compress_video(input_path, output_path, codec, bitrate=None, quality=None):
+def compress_video(input_path, output_path, codec, bitrate):
     """
     Compresses video and preserves metadata + file system dates.
     """
-    if quality is not None:
+    if codec == HARDWARE_CODEC:
+        maxrate = str(int(bitrate[:-1]) * 2) + bitrate[-1]  # 2x target as ceiling
         command = [
             "ffmpeg", "-i", input_path,
             "-map_metadata", "0",
             "-c:v", codec,
-            "-q:v", str(quality),
+            "-b:v", bitrate,
+            "-maxrate", maxrate,
+            "-bufsize", maxrate,
             "-tag:v", "hvc1",
             "-c:a", "aac",
             "-b:a", AUDIO_BITRATE,
@@ -68,7 +72,13 @@ def compress_video(input_path, output_path, codec, bitrate=None, quality=None):
 
 
 def main():
-    root_dir = os.getcwd()
+    if len(sys.argv) > 1:
+        root_dir = os.path.abspath(sys.argv[1])
+        if not os.path.isdir(root_dir):
+            print(f"Error: '{root_dir}' is not a valid directory.")
+            return
+    else:
+        root_dir = os.getcwd()
 
     # --- UI MENUS ---
     print("\n--- STEP 1: CHOOSE DESTINATION ---")
@@ -77,8 +87,8 @@ def main():
     mode_choice = input("\nSelect an option (1 or 2): ").strip()
 
     print("\n--- STEP 2: CHOOSE ENCODING ENGINE ---")
-    print(f"1. Hardware ({HARDWARE_CODEC}) -> Fast, quality {HARDWARE_QUALITY}/100 (VBR)")
-    print(f"2. Software ({SOFTWARE_CODEC}) -> Slower, {SOFTWARE_BITRATE} (CBR)")
+    print(f"1. Hardware ({HARDWARE_CODEC}) -> Fast, ~{HARDWARE_BITRATE} VBR (up to {str(int(HARDWARE_BITRATE[:-1])*2)+HARDWARE_BITRATE[-1]} peak)")
+    print(f"2. Software ({SOFTWARE_CODEC}) -> Slower, {SOFTWARE_BITRATE} CBR")
     codec_choice = input("\nSelect an option (1 or 2): ").strip()
 
     if mode_choice not in ["1", "2"] or codec_choice not in ["1", "2"]:
@@ -97,7 +107,7 @@ def main():
         print(f"No {TARGET_EXTENSION} files found.")
         return
 
-    mode_label = f"quality {HARDWARE_QUALITY}/100 VBR" if use_hardware else f"{SOFTWARE_BITRATE} CBR"
+    mode_label = f"~{HARDWARE_BITRATE} VBR" if use_hardware else f"{SOFTWARE_BITRATE} CBR"
     print(f"\n🚀 Processing {len(video_files)} videos using {selected_codec} ({mode_label})...")
 
     for i, input_path in enumerate(video_files, 1):
@@ -118,8 +128,7 @@ def main():
 
         # 3. Process
         if compress_video(input_path, output_path, selected_codec,
-                          quality=HARDWARE_QUALITY if use_hardware else None,
-                          bitrate=None if use_hardware else SOFTWARE_BITRATE):
+                          bitrate=HARDWARE_BITRATE if use_hardware else SOFTWARE_BITRATE):
             new_size_bytes = os.path.getsize(output_path)
             new_size_mb = new_size_bytes / (1024 * 1024)
             reduction = (1 - (new_size_bytes / orig_size_bytes)) * 100
