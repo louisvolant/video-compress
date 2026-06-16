@@ -1,15 +1,16 @@
 # Apple Silicon Video Compressor
 
-A specialized Python utility designed for batch compressing `.mov` videos on macOS (optimized for M1/M2/M3/M4 chips). This script allows you to choose between lightning-fast **Hardware Acceleration** or high-efficiency **Software Encoding**, while meticulously preserving original file metadata and creation dates.
+A Python utility for batch compressing `.mov` videos on macOS (optimized for M1/M2/M3/M4 chips). Choose between lightning-fast **Hardware Acceleration** (HEVC/H.265) or high-efficiency **Software Encoding** (H.264), while preserving original file metadata and creation dates.
 
 ## 🚀 Features
 
-- **Apple Silicon Optimized:** Leverages `h264_videotoolbox` for near-instant compression using dedicated media engines.
+- **Apple Silicon Optimized:** Leverages `hevc_videotoolbox` (H.265) for near-instant compression using dedicated media engines.
 - **Dual Encoding Modes:**
-    - **Hardware:** Ultra-fast and energy-efficient (compensates quality with a higher 1.5M bitrate).
-    - **Software:** Maximum quality-to-size ratio (uses 1M bitrate).
-- **Metadata Preservation:** Uses `ExifTool` to ensure "Date Created" and "Date Modified" in the Finder remain identical to the original file.
-- **Intelligent Logging:** Real-time display of original size, new size, and the exact reduction percentage.
+    - **Hardware:** Ultra-fast HEVC encoding at ~2 Mbps average (VBR, up to 4 Mbps peak for complex scenes).
+    - **Software:** H.264 at 1 Mbps CBR — slower but compatible with a wider range of players.
+- **Flexible Invocation:** Run from any directory by passing the target folder as an argument, or run directly from within the folder to process.
+- **Metadata Preservation:** Uses `ExifTool` to keep "Date Created" and "Date Modified" identical to the original file.
+- **Intelligent Logging:** Real-time display of original size, new size, and reduction percentage (with correct `+` sign when output is larger).
 - **Batch Processing:** Recursively scans directories to process hundreds of videos while maintaining folder structure.
 
 ---
@@ -22,7 +23,7 @@ You must have the following tools installed on your Mac:
 2. **FFmpeg:** For the video processing engine.
 3. **ExifTool:** For syncing file system creation dates.
 
-You can install the dependencies via [Homebrew](https://brew.sh/):
+Install via [Homebrew](https://brew.sh/):
 
 ```bash
 brew install ffmpeg exiftool
@@ -32,34 +33,47 @@ brew install ffmpeg exiftool
 
 ## 📖 How to Use
 
-1. **Setup:** Place the script in the parent directory containing the videos you wish to compress.
-2. **Run:** Open your terminal and execute:
+### Option A — Pass the target directory as an argument (run from anywhere)
 
 ```bash
-python3 compress_video.py
+# From the parent directory, pointing to a specific subfolder
+python3 video-compress/video_compress.py "/path/to/my/videos/"
 ```
 
-3. **Menu 1:** Choose whether to create copies in a separate folder or overwrite the original files.
-4. **Menu 2:** Select your preferred encoding engine (Hardware for speed, Software for quality).
+### Option B — Run from within the target directory
+
+```bash
+# Navigate to the folder containing the .mov files, then run the script
+cd "/path/to/my/videos/" && python3 /path/to/video-compress/video_compress.py
+```
+
+### Interactive menus
+
+After launching, the script will ask:
+
+1. **Destination:** Create copies in a `COMPRESSED_VIDEOS` subfolder, or overwrite the originals.
+2. **Encoding engine:** Hardware (fast) or Software (slower, wider compatibility).
 
 ---
 
 ## 📊 Comparison: Hardware vs. Software
 
-| Feature | Hardware (videotoolbox) | Software (libx264) |
-|---------|------------------------|-------------------|
+| Feature | Hardware (hevc_videotoolbox) | Software (libx264) |
+|---------|-----------------------------|--------------------|
+| Codec | H.265 (HEVC) | H.264 |
 | Speed | ⚡ Ultra-Fast | 🐢 Slower |
-| CPU Load | Minimal (Mac stays cool) | High (Fans may spin) |
-| Efficiency | Good (at 1.5 Mbps) | Excellent (at 1.0 Mbps) |
-| Best For | Fast exports / Large batches | Long-term archiving |
+| CPU Load | Minimal (Mac stays cool) | High (fans may spin) |
+| Bitrate mode | VBR ~2 Mbps (up to 4 Mbps) | CBR 1 Mbps |
+| Compatibility | Apple devices (tagged `hvc1`) | Universal |
+| Best For | Fast exports / large batches | Broad device compatibility |
 
 ---
 
 ## 📝 Global Configuration
 
-You can tweak the constants at the top of the Python file to suit your needs:
+Tweak the constants at the top of `video_compress.py` to suit your needs:
 
-- `HARDWARE_BITRATE`: (Default: `1.5M`)
-- `SOFTWARE_BITRATE`: (Default: `1M`)
-- `TARGET_EXTENSION`: (Default: `.mov`)
-- `AUDIO_BITRATE`: (Default: `64k`)
+- `HARDWARE_BITRATE`: Average target bitrate for hardware encoding (Default: `2M`)
+- `SOFTWARE_BITRATE`: Fixed bitrate for software encoding (Default: `1M`)
+- `TARGET_EXTENSION`: File extension to scan for (Default: `.mov`)
+- `AUDIO_BITRATE`: Audio track bitrate (Default: `64k`)
