@@ -3,36 +3,49 @@ import subprocess
 import shutil
 
 # --- GLOBAL CONFIGURATION ---
-HARDWARE_CODEC = "h264_videotoolbox"
+HARDWARE_CODEC = "hevc_videotoolbox"
 SOFTWARE_CODEC = "libx264"
 
-HARDWARE_BITRATE = "1.5M"  # Compensate hardware speed with higher bitrate
+HARDWARE_QUALITY = 65  # 0-100, higher = better quality; 60-75 is a good range
 SOFTWARE_BITRATE = "1M"  # Software is more efficient, can use lower bitrate
 
 AUDIO_BITRATE = "64k"
 TARGET_EXTENSION = ".mov"
 
 
-def compress_video(input_path, output_path, codec, bitrate):
+def compress_video(input_path, output_path, codec, bitrate=None, quality=None):
     """
     Compresses video and preserves metadata + file system dates.
     """
-    command = [
-        "ffmpeg", "-i", input_path,
-        "-map_metadata", "0",
-        "-c:v", codec,
-        "-b:v", bitrate,
-        "-maxrate", bitrate,
-        "-bufsize", "2M",
-        "-c:a", "aac",
-        "-b:a", AUDIO_BITRATE,
-        "-ac", "1",
-        "-movflags", "+faststart",
-        output_path,
-        "-y"
-    ]
-
-    if codec == SOFTWARE_CODEC:
+    if quality is not None:
+        command = [
+            "ffmpeg", "-i", input_path,
+            "-map_metadata", "0",
+            "-c:v", codec,
+            "-q:v", str(quality),
+            "-tag:v", "hvc1",
+            "-c:a", "aac",
+            "-b:a", AUDIO_BITRATE,
+            "-ac", "1",
+            "-movflags", "+faststart",
+            output_path,
+            "-y"
+        ]
+    else:
+        command = [
+            "ffmpeg", "-i", input_path,
+            "-map_metadata", "0",
+            "-c:v", codec,
+            "-b:v", bitrate,
+            "-maxrate", bitrate,
+            "-bufsize", "2M",
+            "-c:a", "aac",
+            "-b:a", AUDIO_BITRATE,
+            "-ac", "1",
+            "-movflags", "+faststart",
+            output_path,
+            "-y"
+        ]
         command.insert(-2, "-preset")
         command.insert(-2, "faster")
 
@@ -64,8 +77,8 @@ def main():
     mode_choice = input("\nSelect an option (1 or 2): ").strip()
 
     print("\n--- STEP 2: CHOOSE ENCODING ENGINE ---")
-    print(f"1. Hardware ({HARDWARE_CODEC}) -> Fast, {HARDWARE_BITRATE}")
-    print(f"2. Software ({SOFTWARE_CODEC}) -> Quality, {SOFTWARE_BITRATE}")
+    print(f"1. Hardware ({HARDWARE_CODEC}) -> Fast, quality {HARDWARE_QUALITY}/100 (VBR)")
+    print(f"2. Software ({SOFTWARE_CODEC}) -> Slower, {SOFTWARE_BITRATE} (CBR)")
     codec_choice = input("\nSelect an option (1 or 2): ").strip()
 
     if mode_choice not in ["1", "2"] or codec_choice not in ["1", "2"]:
@@ -74,7 +87,7 @@ def main():
 
     overwrite_mode = (mode_choice == "2")
     selected_codec = HARDWARE_CODEC if codec_choice == "1" else SOFTWARE_CODEC
-    selected_bitrate = HARDWARE_BITRATE if codec_choice == "1" else SOFTWARE_BITRATE
+    use_hardware = codec_choice == "1"
     output_base = os.path.join(root_dir, "COMPRESSED_VIDEOS")
 
     video_files = [os.path.join(r, f) for r, d, fs in os.walk(root_dir)
@@ -84,7 +97,8 @@ def main():
         print(f"No {TARGET_EXTENSION} files found.")
         return
 
-    print(f"\n🚀 Processing {len(video_files)} videos using {selected_codec}...")
+    mode_label = f"quality {HARDWARE_QUALITY}/100 VBR" if use_hardware else f"{SOFTWARE_BITRATE} CBR"
+    print(f"\n🚀 Processing {len(video_files)} videos using {selected_codec} ({mode_label})...")
 
     for i, input_path in enumerate(video_files, 1):
         # 1. Capture original size
@@ -103,7 +117,9 @@ def main():
         print(f"[{i}/{len(video_files)}] Compressing: {os.path.basename(input_path)}...", end="\r")
 
         # 3. Process
-        if compress_video(input_path, output_path, selected_codec, selected_bitrate):
+        if compress_video(input_path, output_path, selected_codec,
+                          quality=HARDWARE_QUALITY if use_hardware else None,
+                          bitrate=None if use_hardware else SOFTWARE_BITRATE):
             new_size_bytes = os.path.getsize(output_path)
             new_size_mb = new_size_bytes / (1024 * 1024)
             reduction = (1 - (new_size_bytes / orig_size_bytes)) * 100
