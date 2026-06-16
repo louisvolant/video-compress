@@ -134,8 +134,9 @@ def main():
             reduction = (1 - (new_size_bytes / orig_size_bytes)) * 100
 
             # Updated log line with size comparison and percentage
+            sign = "-" if reduction >= 0 else "+"
             print(
-                f"[{i}/{len(video_files)}] ✅ {os.path.basename(input_path)}: {orig_size_mb:.1f} MB -> {new_size_mb:.1f} MB (-{reduction:.1f}%)")
+                f"[{i}/{len(video_files)}] ✅ {os.path.basename(input_path)}: {orig_size_mb:.1f} MB -> {new_size_mb:.1f} MB ({sign}{abs(reduction):.1f}%)")
 
             if overwrite_mode and input_path != output_path:
                 os.remove(input_path)
